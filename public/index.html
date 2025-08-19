@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Live PDF Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            background: #f9f9f9;
+        }
+
+        .upload-section.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 10px;
+            transition: background 0.3s;
+        }
+
+        .upload-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .connect-btn {
+            background: #10b981;
+            color: white;
+        }
+
+        .connect-btn:hover:not(:disabled) {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .mic-btn {
+            background: #ef4444;
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            padding: 0;
+            justify-content: center;
+        }
+
+        .mic-btn:hover:not(:disabled) {
+            background: #dc2626;
+            transform: scale(1.05);
+        }
+
+        .mic-btn.recording {
+            background: #dc2626;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .status.connected {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status.disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status.connecting {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .transcript {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 10px;
+            min-height: 100px;
+            max-height: 300px;
+            text-align: left;
+            margin-top: 20px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .transcript h3 {
+            margin-bottom: 10px;
+            color: #374151;
+            position: sticky;
+            top: 0;
+            background: #f3f4f6;
+            padding: 5px 0;
+        }
+
+        .transcript-content {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .icon {
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎤 Gemini Live PDF Bot</h1>
+
+        <div class="upload-section" id="uploadSection">
+            <input type="file" id="pdfFile" class="file-input" accept=".pdf">
+            <button class="upload-btn" onclick="document.getElementById('pdfFile').click()">
+                📄 Upload PDF
+            </button>
+            <div class="file-info" id="fileInfo">No file selected</div>
+        </div>
+
+        <div class="status disconnected" id="status">
+            Disconnected
+        </div>
+
+        <div class="controls">
+            <button class="btn connect-btn" id="connectBtn" onclick="toggleConnection()">
+                🔗 Connect
+            </button>
+            <button class="btn mic-btn" id="micBtn" onclick="toggleMic()" disabled>
+                🎤
+            </button>
+        </div>
+
+        <div class="transcript">
+            <h3>Transcript <button onclick="clearTranscript()" style="float: right; background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer;">Clear</button></h3>
+            <div class="transcript-content" id="transcript">
+                [Ready] Upload a PDF and connect to start talking...
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = null;
+        let isConnected = false;
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioContext = null;
+        let pdfContext = '';
+        
+        // Transcript accumulation variables
+        let currentBotResponse = '';
+        let currentUserResponse = '';
+        let lastBotUpdateTime = 0;
+        let lastUserUpdateTime = 0;
+        const SENTENCE_TIMEOUT = 1000; // 1 second timeout for sentence completion
+        let botTimeoutId = null;
+        let userTimeoutId = null;
+
+        // File upload handling
+        document.getElementById('pdfFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('pdf', file);
+
+            try {
+                const response = await fetch('/upload-pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('fileInfo').textContent =
+                        `PDF uploaded successfully (${result.contextLength} characters)`;
+                    pdfContext = result.contextLength;
+                } else {
+                    alert('Error uploading PDF: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error uploading PDF: ' + error.message);
+            }
+        });
+
+        // Drag and drop handling
+        const uploadSection = document.getElementById('uploadSection');
+
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                document.getElementById('pdfFile').files = e.dataTransfer.files;
+                document.getElementById('pdfFile').dispatchEvent(new Event('change'));
+            }
+        });
+
+        // Connection handling
+        async function toggleConnection() {
+            if (!isConnected) {
+                await connect();
+            } else {
+                await disconnect();
+            }
+        }
+
+        async function connect() {
+            try {
+                updateStatus('connecting', 'Connecting...');
+                updateTranscript('[System] Attempting to connect...');
+
+                const response = await fetch('/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    isConnected = true;
+                    updateStatus('connected', 'Connected');
+                    document.getElementById('connectBtn').textContent = '🔌 Disconnect';
+                    document.getElementById('micBtn').disabled = false;
+                    updateTranscript('[System] Successfully connected to Gemini Live API');
+
+                    // Initialize socket connection
+                    socket = io();
+                    setupSocketHandlers();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                updateStatus('disconnected', 'Connection failed');
+                updateTranscript(`[System] Connection failed: ${error.message}`);
+                alert('Failed to connect: ' + error.message);
+            }
+        }
+
+        async function disconnect() {
+            try {
+                updateTranscript('[System] Disconnecting...');
+                
+                if (isRecording) {
+                    stopRecording();
+                }
+
+                // Clear audio queue
+                clearAudioQueue();
+
+                const response = await fetch('/disconnect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    isConnected = false;
+                    updateStatus('disconnected', 'Disconnected');
+                    document.getElementById('connectBtn').textContent = '🔗 Connect';
+                    document.getElementById('micBtn').disabled = true;
+                    updateTranscript('[System] Disconnected from Gemini Live API');
+
+                    if (socket) {
+                        socket.disconnect();
+                        socket = null;
+                    }
+                }
+            } catch (error) {
+                console.error('Error disconnecting:', error);
+                updateTranscript(`[System] Error disconnecting: ${error.message}`);
+            }
+        }
+
+        function setupSocketHandlers() {
+            socket.on('connect', () => {
+                console.log('Socket connected');
+                updateTranscript('[System] WebSocket connected');
+                
+                // Send a test message to verify connection
+                socket.emit('test', 'Hello server');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Socket disconnected');
+                updateTranscript('[System] WebSocket disconnected');
+            });
+
+            // Handle test response
+            socket.on('test-response', (data) => {
+                console.log('Test response received:', data);
+                updateTranscript('[System] Server connection verified');
+            });
+
+            // Handle audio data from the server
+            socket.on('audio-data', (data) => {
+                console.log('Received audio data, length:', data ? data.length : 'null');
+                if (data) {
+                    playAudio(data);
+                }
+            });
+
+            // Handle input transcription (user speech)
+            socket.on('input-transcription', (data) => {
+                console.log('Input transcription received:', data);
+                if (data && data.text) {
+                    handleUserTranscription(data.text, data.finished);
+                }
+            });
+
+            // Handle output transcription (bot speech)
+            socket.on('output-transcription', (data) => {
+                console.log('Output transcription received:', data);
+                if (data && data.text) {
+                    handleBotTranscription(data.text, data.finished);
+                }
+            });
+
+            // Handle general content
+            socket.on('content', (data) => {
+                console.log('Content received:', data);
+                updateTranscript(`[Debug] Content event received: ${JSON.stringify(data).substring(0, 100)}...`);
+                if (data.modelTurn && data.modelTurn.parts) {
+                    const textParts = data.modelTurn.parts
+                        .filter(part => part.text)
+                        .map(part => part.text)
+                        .join(' ');
+                    if (textParts) {
+                        updateTranscript(`Bot: ${textParts}`);
+                    }
+                }
+            });
+        }
+
+        // Global audio context for playback
+        let playbackAudioContext = null;
+        let audioQueue = [];
+        let isPlaying = false;
+
+        // Function to play received audio
+        function playAudio(audioData) {
+            try {
+                // Convert base64 to ArrayBuffer
+                const binaryString = atob(audioData);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                // Convert PCM data to Float32Array
+                const int16Array = new Int16Array(bytes.buffer);
+                const float32Array = new Float32Array(int16Array.length);
+                
+                for (let i = 0; i < int16Array.length; i++) {
+                    float32Array[i] = int16Array[i] / 32768.0;
+                }
+
+                // Add to queue
+                audioQueue.push({ float32Array, timestamp: Date.now() });
+                
+                // Start playing if not already playing
+                if (!isPlaying) {
+                    playNextAudio();
+                }
+            } catch (error) {
+                console.error('Error processing audio:', error);
+            }
+        }
+
+        // Function to play next audio in queue
+        async function playNextAudio() {
+            if (audioQueue.length === 0) {
+                isPlaying = false;
+                return;
+            }
+
+            isPlaying = true;
+            const audioChunk = audioQueue.shift();
+
+            try {
+                // Create audio context if not exists
+                if (!playbackAudioContext) {
+                    playbackAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                }
+
+                // Resume audio context if suspended
+                if (playbackAudioContext.state === 'suspended') {
+                    await playbackAudioContext.resume();
+                }
+
+                // Create audio buffer
+                const audioBuffer = playbackAudioContext.createBuffer(1, audioChunk.float32Array.length, 24000);
+                audioBuffer.getChannelData(0).set(audioChunk.float32Array);
+
+                // Play the audio
+                const source = playbackAudioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(playbackAudioContext.destination);
+                
+                // Play next audio when this one finishes
+                source.onended = () => {
+                    // Small delay to prevent overlapping
+                    setTimeout(() => {
+                        playNextAudio();
+                    }, 10);
+                };
+                
+                source.start(0);
+                console.log('Playing audio chunk, length:', audioChunk.float32Array.length);
+            } catch (error) {
+                console.error('Error playing audio:', error);
+                // Continue with next audio even if this one fails
+                setTimeout(() => {
+                    playNextAudio();
+                }, 10);
+            }
+        }
+
+        // Microphone handling
+        async function toggleMic() {
+            if (!isRecording) {
+                // Enable audio context on user interaction
+                if (!audioContext) {
+                    audioContext = new AudioContext({ sampleRate: 16000 });
+                }
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        async function startRecording() {
+            try {
+                updateTranscript('[System] Starting microphone...');
+                
+                // Clear any existing audio queue
+                clearAudioQueue();
+                
+                // Resume audio context if suspended (needed for autoplay policy)
+                if (audioContext && audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                    }
+                });
+
+                audioContext = new AudioContext({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(stream);
+
+                // Create audio processor
+                const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+                processor.onaudioprocess = (e) => {
+                    if (isRecording && socket) {
+                        const inputData = e.inputBuffer.getChannelData(0);
+                        const int16Array = new Int16Array(inputData.length);
+
+                        for (let i = 0; i < inputData.length; i++) {
+                            int16Array[i] = inputData[i] * 32767;
+                        }
+
+                        const base64Data = btoa(String.fromCharCode(...new Uint8Array(int16Array.buffer)));
+                        socket.emit('audio-data', base64Data);
+                        
+                        // Debug: log audio data size occasionally
+                        if (Math.random() < 0.01) { // Log 1% of the time
+                            console.log('Sending audio chunk, size:', base64Data.length);
+                        }
+                    }
+                };
+
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                mediaRecorder = { stream, source, processor };
+                isRecording = true;
+
+                document.getElementById('micBtn').classList.add('recording');
+                document.getElementById('micBtn').textContent = '⏹️';
+
+                updateTranscript('🎤 Recording started! Speak now...');
+            } catch (error) {
+                updateTranscript(`[System] Error starting microphone: ${error.message}`);
+                alert('Error starting recording: ' + error.message);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder) {
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                if (audioContext) {
+                    audioContext.close();
+                    audioContext = null;
+                }
+                mediaRecorder = null;
+            }
+
+            isRecording = false;
+            document.getElementById('micBtn').classList.remove('recording');
+            document.getElementById('micBtn').textContent = '🎤';
+
+            updateTranscript('[System] Microphone stopped');
+        }
+
+        // Function to clear audio queue
+        function clearAudioQueue() {
+            audioQueue = [];
+            isPlaying = false;
+        }
+
+        function updateStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+        }
+
+        function updateTranscript(text) {
+            const transcriptEl = document.getElementById('transcript');
+            const timestamp = new Date().toLocaleTimeString();
+            const newEntry = `[${timestamp}] ${text}\n`;
+            
+            // Add new entry to existing transcript
+            transcriptEl.textContent += newEntry;
+            
+            // Scroll to bottom
+            transcriptEl.scrollTop = transcriptEl.scrollHeight;
+        }
+
+        function handleUserTranscription(text, finished) {
+            const now = Date.now();
+            
+            // Clear existing timeout
+            if (userTimeoutId) {
+                clearTimeout(userTimeoutId);
+                userTimeoutId = null;
+            }
+            
+            // If this is a new sentence (timeout or finished flag)
+            if (now - lastUserUpdateTime > SENTENCE_TIMEOUT || finished) {
+                // If we have accumulated text, display it
+                if (currentUserResponse.trim()) {
+                    updateTranscript(`You: ${currentUserResponse.trim()}`);
+                }
+                // Start new response
+                currentUserResponse = text;
+                lastUserUpdateTime = now;
+            } else {
+                // Accumulate text
+                currentUserResponse += text;
+                lastUserUpdateTime = now;
+            }
+            
+            // Check if we have a complete sentence (ends with punctuation)
+            const hasCompleteSentence = /[.!?]\s*$/.test(currentUserResponse);
+            
+            // If finished, display immediately
+            if (finished && currentUserResponse.trim()) {
+                updateTranscript(`You: ${currentUserResponse.trim()}`);
+                currentUserResponse = '';
+            } else if (hasCompleteSentence) {
+                // If we have a complete sentence, display it and start a new one
+                updateTranscript(`You: ${currentUserResponse.trim()}`);
+                currentUserResponse = '';
+            } else {
+                // Set timeout to display accumulated text if no more updates
+                userTimeoutId = setTimeout(() => {
+                    if (currentUserResponse.trim()) {
+                        updateTranscript(`You: ${currentUserResponse.trim()}`);
+                        currentUserResponse = '';
+                    }
+                    userTimeoutId = null;
+                }, SENTENCE_TIMEOUT);
+            }
+        }
+
+        function handleBotTranscription(text, finished) {
+            const now = Date.now();
+            
+            // Clear existing timeout
+            if (botTimeoutId) {
+                clearTimeout(botTimeoutId);
+                botTimeoutId = null;
+            }
+            
+            // If this is a new sentence (timeout or finished flag)
+            if (now - lastBotUpdateTime > SENTENCE_TIMEOUT || finished) {
+                // If we have accumulated text, display it
+                if (currentBotResponse.trim()) {
+                    updateTranscript(`Bot: ${currentBotResponse.trim()}`);
+                }
+                // Start new response
+                currentBotResponse = text;
+                lastBotUpdateTime = now;
+            } else {
+                // Accumulate text
+                currentBotResponse += text;
+                lastBotUpdateTime = now;
+            }
+            
+            // Check if we have a complete sentence (ends with punctuation)
+            const hasCompleteSentence = /[.!?]\s*$/.test(currentBotResponse);
+            
+            // If finished, display immediately
+            if (finished && currentBotResponse.trim()) {
+                updateTranscript(`Bot: ${currentBotResponse.trim()}`);
+                currentBotResponse = '';
+            } else if (hasCompleteSentence) {
+                // If we have a complete sentence, display it and start a new one
+                updateTranscript(`Bot: ${currentBotResponse.trim()}`);
+                currentBotResponse = '';
+            } else {
+                // Set timeout to display accumulated text if no more updates
+                botTimeoutId = setTimeout(() => {
+                    if (currentBotResponse.trim()) {
+                        updateTranscript(`Bot: ${currentBotResponse.trim()}`);
+                        currentBotResponse = '';
+                    }
+                    botTimeoutId = null;
+                }, SENTENCE_TIMEOUT);
+            }
+        }
+
+        function clearTranscript() {
+            document.getElementById('transcript').textContent = '[Ready] Transcript cleared...\n';
+            // Reset accumulation variables
+            currentBotResponse = '';
+            currentUserResponse = '';
+            lastBotUpdateTime = 0;
+            lastUserUpdateTime = 0;
+            // Clear timeouts
+            if (botTimeoutId) {
+                clearTimeout(botTimeoutId);
+                botTimeoutId = null;
+            }
+            if (userTimeoutId) {
+                clearTimeout(userTimeoutId);
+                userTimeoutId = null;
+            }
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (isRecording) {
+                stopRecording();
+            }
+            if (isConnected) {
+                disconnect();
+            }
+            // Clear any pending timeouts
+            if (botTimeoutId) {
+                clearTimeout(botTimeoutId);
+            }
+            if (userTimeoutId) {
+                clearTimeout(userTimeoutId);
+            }
+        });
+    </script>
+</body>
+
+</html>
