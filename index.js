@@ -11,7 +11,7 @@ import { Server } from 'socket.io';
 dotenv.config();
 
 import { GenAILiveClient } from './lib/genai-live-client.js';
-import { AudioStreamer } from './lib/audio-streamer.js';
+import generateSystemInstructions from './lib/instructions.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -161,7 +161,7 @@ app.post('/connect', async (req, res) => {
             },
             systemInstruction: {
                 parts: [{
-                    text: `You are a helpful assistant. ${pdfContext ? `Use the following PDF context to answer questions:\n\n${pdfContext}` : 'You can help with general questions.'}`
+                    text: generateSystemInstructions(pdfContext)
                 }],
             },
         };
