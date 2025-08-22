@@ -4,7 +4,6 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
-import pdfParse from 'pdf-parse';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
@@ -12,6 +11,7 @@ dotenv.config();
 
 import { GenAILiveClient } from './lib/genai-live-client.js';
 import generateSystemInstructions from './lib/instructions.js';
+import { parsePDF } from './lib/pdf-parser.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -98,9 +98,7 @@ function initializeLiveClient() {
 // Extract text from PDF
 async function extractPDFText(filePath) {
     try {
-        const dataBuffer = fs.readFileSync(filePath);
-        const data = await pdfParse(dataBuffer);
-        return data.text;
+        return await parsePDF(filePath);
     } catch (error) {
         console.error('Error parsing PDF:', error);
         throw error;
