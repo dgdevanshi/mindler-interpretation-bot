@@ -167,6 +167,8 @@ app.post('/connect', async (req, res) => {
         };
 
         await liveClient.connect('gemini-live-2.5-flash-preview', config);
+        
+        liveClient.send([{ text: "Hello!" }]);
 
         res.json({ success: true, message: 'Connected to Gemini Live API' });
     } catch (error) {
